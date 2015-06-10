@@ -1,9 +1,8 @@
 package godns
 
 import (
-	"errors"
 	"fmt"
-	"math/rand"
+	"log"
 	"net"
 	"strconv"
 	"time"
@@ -14,16 +13,11 @@ import (
 // DefaultNameServer - Google
 const DefaultNameServer = "8.8.8.8:53"
 
-// -
-var (
-	ErrEmptyIPS = errors.New("No IP's for a given host")
-)
-
 // Pool - for caching DNS records and easy retrieval
 type Pool struct {
 	NameServer                      string
 	Randomize                       bool
-	records                         map[string][]*net.TCPAddr
+	records                         TCPMap
 	Timeout, StepTimeout, RetryWait time.Duration
 }
 
@@ -35,7 +29,7 @@ func New() *Pool {
 		Timeout:     5 * time.Second,
 		StepTimeout: 2 * time.Second,
 		RetryWait:   2 * time.Second,
-		records:     make(map[string][]*net.TCPAddr),
+		records:     make(TCPMap, 5),
 	}
 }
 
@@ -45,26 +39,20 @@ func (p *Pool) Get(hostport string) (*net.TCPAddr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if value, ok := p.records[hostport]; ok {
-		addrLen := len(value)
-		if addrLen == 1 {
-			return value[0], nil
-		}
-		if p.Randomize {
-			return value[rand.Intn(addrLen)], nil
-		}
-		return value[0], nil
+	if p.records.Exist(hostport) {
+		return p.records.Get(hostport, p.Randomize)
 	}
-	ips, _, err := p.ResolveName(host, p.NameServer)
+	ips, duration, err := p.ResolveName(host, p.NameServer)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("%s took %f, to resolve %s", hostport, duration.Seconds(), ips)
 	if len(ips) == 0 {
 		return nil, ErrEmptyIPS
 	}
-	po, _ := strconv.Atoi(port)
-	p.records[hostport] = append(p.records[hostport], &net.TCPAddr{IP: ips[rand.Intn(len(ips))], Port: po})
-	return p.Get(hostport)
+	portNum, _ := strconv.Atoi(port)
+	p.records.BulkAdd(hostport, ips, portNum)
+	return p.records.Get(hostport, p.Randomize)
 }
 
 // ResolveName - resolves name for given host and returns array of IP's
@@ -77,7 +65,7 @@ func (p *Pool) ResolveName(name, nameserver string) (addrs []net.IP, dur time.Du
 	dnsMessage := new(dns.Msg)
 	dnsMessage.MsgHdr.RecursionDesired = true
 	dnsMessage.SetQuestion(dns.Fqdn(name), dns.TypeA)
-	addrs = make([]net.IP, 0)
+	addrs = make([]net.IP, 0, 5)
 	retryWait := p.RetryWait
 
 Redo:
