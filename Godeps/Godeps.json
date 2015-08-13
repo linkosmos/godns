@@ -1,0 +1,14 @@
+{
+	"ImportPath": "github.com/linkosmos/godns",
+	"GoVersion": "go1.4.2",
+	"Deps": [
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "d1c4472bf2efd3826f2b5bdcc02d8416798d678c"
+		},
+		{
+			"ImportPath": "github.com/miekg/dns",
+			"Rev": "e6898c8f30b5d002db962043a62db90552e90bf7"
+		}
+	]
+}
