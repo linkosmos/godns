@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
 )
 
@@ -46,7 +46,7 @@ func (p *Pool) Get(hostport string) (*net.TCPAddr, error) {
 	if err != nil {
 		return nil, err
 	}
-	glog.Warningf("%s took %f, to resolve %s", hostport, duration.Seconds(), ips)
+	logrus.Warningf("%s took %f, to resolve %s", hostport, duration.Seconds(), ips)
 	if len(ips) == 0 {
 		return nil, ErrEmptyIPS
 	}
